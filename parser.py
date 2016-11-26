@@ -2,6 +2,8 @@
 Python II - Sommersemester 2014
 Parsing III - Probabilistisches Parsing
 """
+import sys
+
 from nltk import Tree
 from collections import defaultdict
 
@@ -9,21 +11,24 @@ from nltk.corpus.reader import CategorizedBracketParseCorpusReader
 from nltk.corpus.util import LazyCorpusLoader
 
 from utils import get_tagged_words
+from utils import str_flattened
 
 class Prob_CYK_Parser():
-    def __init__(self, filename):
-        #self.rules = list()
+    def __init__(self, rules_file, start_file):
         self.rules = list()
-        with open(filename) as f:
+        self.start_prob = defaultdict(float)
+        with open(rules_file) as f:
             for line in f:
                 raw = line.split("\t")
                 self.rules.append(Rule(raw[0], (raw[1], raw[2]), float(raw[3])))
+        with open(start_file) as g:
+            for line in g:
+                raw = line.split("\t")
+                self.start_prob[raw[0]] = float(raw[1].strip())
 
-    def parse_cyk(self, tokens): # Als Argumente: Liste mit (Wort, POS-Tag)
+    def parse_cyk(self, tokens): # Als Argument: Liste mit (Wort, POS-Tag)
         self.build_matrix(tokens)
 
-        # Schritt 2 bis n:
-        # Gehe Diagonale entlang und schau, ob Regeln angewandt werden können, fülle dann Zellen aus
         for x in range(1, len(tokens)):
             i = 0
             j = x
@@ -40,10 +45,18 @@ class Prob_CYK_Parser():
                 j += 1          
 
 
-        if "S" in self.matrix[0][len(tokens)-1]:
-            return self.matrix[0][len(tokens)-1]["S"].get_tree()
+        max_prob = 0
+        best_root = None
+        for root_sym in self.matrix[0][len(tokens)-1]:
+            root_prob = self.matrix[0][len(tokens)-1][root_sym].inner_prob * self.start_prob[root_sym]
+            if root_prob > max_prob:
+                max_prob = root_prob
+                best_root = root_sym
+
+        if max_prob > 0:
+            return self.matrix[0][len(tokens)-1][best_root].get_tree()
         else:
-            return None
+            return Tree('S', [Tree(tag, [word]) for (word,tag) in tokens])
 
     def build_matrix(self, tokens):
         '''Build the chart with POS tags at base level'''
@@ -55,16 +68,6 @@ class Prob_CYK_Parser():
         for x in range(len(tokens)):
             (word, tag) = tokens[x]
             self.matrix[x][x][tag] = BaseEntry(word, tag)
-
-
-    def get_tree(self, symbol, x, y):
-        if not self.matrix[x][y]:
-            return
-
-        if self.matrix[x][y][symbol][1][1] == -1: # Rekursionsbasis
-            return Tree(symbol, [Tree(self.words[y], [])])
-
-        return Tree(symbol, [  self.get_tree(self.matrix[x][y][symbol][1][0], self.matrix[x][y][symbol][1][1], self.matrix[x][y][symbol][1][2])  , self.get_tree(self.matrix[x][y][symbol][2][0], self.matrix[x][y][symbol][2][1], self.matrix[x][y][symbol][2][2])    ])
 
 
 
@@ -99,27 +102,15 @@ class BaseEntry():
 
 
 
-def main():
-    ptb_test = LazyCorpusLoader('ptb', CategorizedBracketParseCorpusReader, r'wsj/23/wsj_.*.mrg', cat_file='allcats.txt', tagset='wsj')
-    parser = Prob_CYK_Parser("ctr2.txt")
-
-    #for tree in ptb_test.parsed_sents():
-
 if __name__ == "__main__":
     ptb_test = LazyCorpusLoader('ptb', CategorizedBracketParseCorpusReader, r'wsj/23/wsj_.*.mrg', cat_file='allcats.txt', tagset='wsj')
-    parser = Prob_CYK_Parser("all-rules.pcfg")
+    parser = Prob_CYK_Parser("all-rules.pcfg", "root-probs.pcfg")
 
-    for i in [0]:
-        l = get_tagged_words(ptb_test.parsed_sents()[i])
-        t = parser.parse_cyk(l)
-        print(t)
-    
-#    parser = Prob_CYK_Parser()
-#    
-#    test = ["the", "dog", "salespeople", "sold", "the", "dog", "biscuits"]
-#    r = parser.recognize_cyk(test, rules, lexicon)
-#    print(r)
-#    print("Satz in der Sprache?", r[0])
-#    tree, prob = parser.parse_cyk(test, rules, lexicon)
-#    print(prob, tree)
-    
+    begin = int(sys.argv[1])
+    end = int(sys.argv[2])
+    with open(str(begin) + "-" + str(end) + ".parse", 'w+') as f:
+        for i in range(begin, end+1):
+            l = get_tagged_words(ptb_test.parsed_sents()[i])
+            t = parser.parse_cyk(l)
+            t.un_chomsky_normal_form()
+            f.write(str_flattened(t) + "\n")

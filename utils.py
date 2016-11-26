@@ -48,3 +48,7 @@ def get_tagged_words(t):
         return [(child, t.label()) for child in t]
     else:
         return list(chain.from_iterable(get_tagged_words(child) for child in t))
+
+def str_flattened(t):
+    '''Print tree in one line (for use with evalb)'''
+    return "( " + " ".join(s.strip() for s in str(t).split('\n')) + ")"

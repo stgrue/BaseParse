@@ -32,18 +32,27 @@ def main():
     ptb_test = LazyCorpusLoader('ptb', CategorizedBracketParseCorpusReader, r'wsj/23/wsj_.*.mrg', cat_file='allcats.txt', tagset='wsj')
 
     counter = defaultdict(lambda: defaultdict(int))
+    start_sym = defaultdict(float)
 
     for tree in ptb_train.parsed_sents():
         simplify(tree)
         count_tree(tree, counter)
+        start_sym[tree.label()] += 1
 
-    for lhs in counter:
-        lhs_occ = sum(counter[lhs][rhs] for rhs in counter[lhs])
-        for rhs in counter[lhs]:
-            if len(rhs) != 2:
-                msg = "Rule '" + str(lhs) + " -> " + str(rhs) + " is not binary!"
-                raise NonBinaryException(msg)
-            print(str(lhs) + "\t" + str(rhs[0]) + "\t" + str(rhs[1]) + "\t" + str(counter[lhs][rhs] / lhs_occ))
+    with open("all-rules.pcfg", "w+") as f:
+        for lhs in counter:
+            lhs_occ = sum(counter[lhs][rhs] for rhs in counter[lhs])
+            for rhs in counter[lhs]:
+                if len(rhs) != 2:
+                    msg = "Rule '" + str(lhs) + " -> " + str(rhs) + " is not binary!"
+                    raise NonBinaryException(msg)
+                f.write(str(lhs) + "\t" + str(rhs[0]) + "\t" + str(rhs[1]) + "\t" + str(counter[lhs][rhs] / lhs_occ) + "\n")
+
+    with open("root-probs.pcfg", "w+") as g:
+        num_sents  = len(ptb_train.parsed_sents())
+        for sym in start_sym:
+            start_sym[sym] = start_sym[sym] / num_sents
+            g.write(sym + "\t" + str(start_sym[sym]) + "\n")
     
 if __name__ == "__main__":
     main()
