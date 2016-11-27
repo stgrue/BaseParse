@@ -15,12 +15,12 @@ from utils import str_flattened
 
 class Prob_CYK_Parser():
     def __init__(self, rules_file, start_file):
-        self.rules = list()
+        self.rules = defaultdict(lambda: defaultdict(list))
         self.start_prob = defaultdict(float)
         with open(rules_file) as f:
             for line in f:
                 raw = line.split("\t")
-                self.rules.append(Rule(raw[0], (raw[1], raw[2]), float(raw[3])))
+                self.rules[raw[1]][raw[2]].append( Rule(raw[0], (raw[1], raw[2]), float(raw[3])) )
         with open(start_file) as g:
             for line in g:
                 raw = line.split("\t")
@@ -35,12 +35,13 @@ class Prob_CYK_Parser():
             while j < len(tokens):
                 max_prob = defaultdict(float) # maximale Wahrscheinlichkeiten für jede Kategorie
                 for y in range(0, x):
-                    for rule in self.rules:
-                        if rule.rhs[0] in self.matrix[i][i+y] and rule.rhs[1] in self.matrix[i+y+1][j]:
-                            if rule.prob * self.matrix[i][i+y][rule.rhs[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs[1]].inner_prob > max_prob[rule.lhs]:
-                                max_prob[rule.lhs] = rule.prob * self.matrix[i][i+y][rule.rhs[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs[1]].inner_prob
-                                self.matrix[i][j][rule.lhs] = Entry(rule.lhs, self.matrix[i][i+y][rule.rhs[0]], self.matrix[i+y+1][j][rule.rhs[1]], max_prob[rule.lhs])
-                              
+                    for child1 in (s for s in self.matrix[i][i+y] if s in self.rules):
+                        for child2 in (t for t in self.matrix[i+y+1][j] if t in self.rules[child1]):
+                            for rule in self.rules[child1][child2]:
+                                if rule.prob * self.matrix[i][i+y][rule.rhs[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs[1]].inner_prob > max_prob[rule.lhs]:
+                                    max_prob[rule.lhs] = rule.prob * self.matrix[i][i+y][rule.rhs[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs[1]].inner_prob
+                                    self.matrix[i][j][rule.lhs] = Entry(rule.lhs, self.matrix[i][i+y][rule.rhs[0]], self.matrix[i+y+1][j][rule.rhs[1]], max_prob[rule.lhs])
+                                  
                 i += 1
                 j += 1          
 
