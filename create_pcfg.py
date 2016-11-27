@@ -5,7 +5,7 @@ from nltk.corpus.util import LazyCorpusLoader
 
 from utils import simplify
 
-class NonBinaryException(Exception):
+class NonChomskyException(Exception):
     pass
 
 def count_node(node, counter):
@@ -13,9 +13,13 @@ def count_node(node, counter):
        production (if tree is not a leaf)'''
     if not isinstance(node, Tree) or len(node) == 0:
         return
-    elif len(node) == 1 or len(node) > 2:
-        msg = "Rule '" + str(node.label()) + " -> " + str(node[:]) + " is not binary!"
-        raise NonBinaryException(msg)
+    elif len(node) == 1:
+        lhs = node.label()
+        rhs = (node[0].label(), "")
+        counter[lhs][rhs] += 1
+    elif len(node) > 2:
+        msg = "Rule '" + str(node.label()) + " -> " + str(node[:]) + " has too many children!"
+        raise NonChomskyException()
     else:
         lhs = node.label()
         rhs = tuple(child.label() for child in node)

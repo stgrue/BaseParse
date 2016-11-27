@@ -5,7 +5,7 @@ def simplify(t):
     '''Pre-process tree to use as base for PCFG'''
     unlex(t)
     strip_labels(t)
-    remove_unary(t)
+    #remove_unary(t)
     t.chomsky_normal_form()
 
 def strip_labels(t):
