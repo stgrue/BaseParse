@@ -69,6 +69,23 @@ class Prob_CYK_Parser():
         for x in range(len(tokens)):
             (word, tag) = tokens[x]
             self.matrix[x][x][tag] = BaseEntry(word, tag)
+        self.complete_unary_rules(tokens, 0)
+
+    def complete_unary_rules(self, tokens, diag):
+        i = 0
+        j = diag
+        while j < len(tokens):
+            modified = True
+            while modified == True:
+                modified = False
+                for child in [c for c in self.matrix[i][j]]:
+                    for rule in self.rules[child][""]:
+                        if (not rule.lhs in self.matrix[i][j]) or (rule.prob * self.matrix[i][j][child].inner_prob > self.matrix[i][j][rule.lhs].inner_prob):
+                            self.matrix[i][j][rule.lhs] = UnaryEntry(rule.lhs, self.matrix[i][j][child], rule.prob * self.matrix[i][j][child].inner_prob)
+                            modified = True
+                    
+            i += 1
+            j += 1
 
 
 
@@ -90,6 +107,16 @@ class Entry():
         self.inner_prob = inner_prob
     def get_tree(self):
         return Tree(self.symbol, [self.left_child.get_tree(), self.right_child.get_tree()])
+
+
+
+class UnaryEntry():
+    def __init__(self, symbol, child, inner_prob):
+        self.symbol = symbol
+        self.child = child
+        self.inner_prob = inner_prob
+    def get_tree(self):
+        return Tree(self.symbol, [self.child.get_tree()])
 
 
 
