@@ -10,7 +10,6 @@ from collections import defaultdict
 from nltk.corpus.reader import CategorizedBracketParseCorpusReader
 from nltk.corpus.util import LazyCorpusLoader
 
-from utils import get_tagged_words
 from utils import str_flattened
 
 class Prob_CYK_Parser():
@@ -138,7 +137,7 @@ if __name__ == "__main__":
     end = int(sys.argv[2])
     with open(str(begin) + "-" + str(end) + ".parse", 'w+') as f:
         for i in range(begin, end+1):
-            l = get_tagged_words(ptb_test.parsed_sents()[i])
+            l = ptb_test.parsed_sents()[i].pos()
             t = parser.parse_cyk(l)
             t.un_chomsky_normal_form()
             f.write(str_flattened(t) + "\n")
