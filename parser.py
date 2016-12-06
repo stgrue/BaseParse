@@ -10,6 +10,9 @@ from collections import defaultdict
 from nltk.corpus.reader import CategorizedBracketParseCorpusReader
 from nltk.corpus.util import LazyCorpusLoader
 
+from nltk.grammar import Nonterminal
+from nltk.grammar import ProbabilisticProduction
+
 from utils import str_flattened
 
 class Prob_CYK_Parser():
@@ -18,33 +21,41 @@ class Prob_CYK_Parser():
         self.start_prob = defaultdict(float)
         with open(rules_file) as f:
             for line in f:
-                raw = line.split("\t")
-                self.rules[raw[1]][raw[2]].append( Rule(raw[0], (raw[1], raw[2]), float(raw[3])) )
+                lhs, rest = (x.strip() for x in line.split(" -> "))
+                rhs = tuple(rest.split()[:-1])
+                if len(rhs) == 1:
+                    rhs = (rhs[0], "")
+                elif len(rhs) > 2:
+                    raise Exception("Non-Chomskian!")
+                prblt = float(rest.split()[-1][1:-1])
+                self.rules[rhs[0]][rhs[1]].append( ProbabilisticProduction(lhs, rhs, prob=prblt) )
         with open(start_file) as g:
             for line in g:
                 raw = line.split("\t")
                 self.start_prob[raw[0]] = float(raw[1].strip())
 
-    def parse_cyk(self, tokens): # Als Argument: Liste mit (Wort, POS-Tag)
+    def parse_cyk(self, tokens): # As Argument: List with (word, POS tag)
+        '''Probabilistically parse a given sentence (with POS tags given)'''
         self.build_matrix(tokens)
 
+        # Fill in the chart
         for x in range(1, len(tokens)):
             i = 0
             j = x
             while j < len(tokens):
-                max_prob = defaultdict(float) # maximale Wahrscheinlichkeiten für jede Kategorie
+                max_prob = defaultdict(float) # maximum probabilities for each category symbol
                 for y in range(0, x):
                     for child1 in (s for s in self.matrix[i][i+y] if s in self.rules):
                         for child2 in (t for t in self.matrix[i+y+1][j] if t in self.rules[child1]):
                             for rule in self.rules[child1][child2]:
-                                if rule.prob * self.matrix[i][i+y][rule.rhs[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs[1]].inner_prob > max_prob[rule.lhs]:
-                                    max_prob[rule.lhs] = rule.prob * self.matrix[i][i+y][rule.rhs[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs[1]].inner_prob
-                                    self.matrix[i][j][rule.lhs] = Entry(rule.lhs, self.matrix[i][i+y][rule.rhs[0]], self.matrix[i+y+1][j][rule.rhs[1]], max_prob[rule.lhs])
+                                if rule.prob() * self.matrix[i][i+y][rule.rhs()[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs()[1]].inner_prob > max_prob[rule.lhs()]:
+                                    max_prob[rule.lhs()] = rule.prob() * self.matrix[i][i+y][rule.rhs()[0]].inner_prob * self.matrix[i+y+1][j][rule.rhs()[1]].inner_prob
+                                    self.matrix[i][j][rule.lhs()] = Entry(rule.lhs(), self.matrix[i][i+y][rule.rhs()[0]], self.matrix[i+y+1][j][rule.rhs()[1]], max_prob[rule.lhs()])
                                   
                 i += 1
                 j += 1          
 
-
+        # Find the best root symbol and return the parse tree
         max_prob = 0
         best_root = None
         for root_sym in self.matrix[0][len(tokens)-1]:
@@ -52,7 +63,6 @@ class Prob_CYK_Parser():
             if root_prob > max_prob:
                 max_prob = root_prob
                 best_root = root_sym
-
         if max_prob > 0:
             return self.matrix[0][len(tokens)-1][best_root].get_tree()
         else:
@@ -71,6 +81,7 @@ class Prob_CYK_Parser():
         self.complete_unary_rules(tokens, 0)
 
     def complete_unary_rules(self, tokens, diag):
+        '''Go over one diagonal of the chart and fill in possible unary productions'''
         i = 0
         j = diag
         while j < len(tokens):
@@ -79,26 +90,16 @@ class Prob_CYK_Parser():
                 modified = False
                 for child in [c for c in self.matrix[i][j]]:
                     for rule in self.rules[child][""]:
-                        if (not rule.lhs in self.matrix[i][j]) or (rule.prob * self.matrix[i][j][child].inner_prob > self.matrix[i][j][rule.lhs].inner_prob):
-                            self.matrix[i][j][rule.lhs] = UnaryEntry(rule.lhs, self.matrix[i][j][child], rule.prob * self.matrix[i][j][child].inner_prob)
+                        if (not rule.lhs() in self.matrix[i][j]) or (rule.prob() * self.matrix[i][j][child].inner_prob > self.matrix[i][j][rule.lhs()].inner_prob):
+                            self.matrix[i][j][rule.lhs()] = UnaryEntry(rule.lhs(), self.matrix[i][j][child], rule.prob() * self.matrix[i][j][child].inner_prob)
                             modified = True
                     
             i += 1
             j += 1
 
 
-
-class Rule():
-    def __init__(self, lhs, rhs, prob):
-        self.lhs = lhs
-        self.rhs = rhs
-        self.prob = prob
-    def __str__(self):
-        return str(self.lhs) + " -> " + str(self.rhs[0]) + " " + str(self.rhs[1]) + ", " + str(self.prob)
-
-
-
 class Entry():
+    '''Chart entry with two back-pointers'''
     def __init__(self, symbol, left_child, right_child, inner_prob):
         self.symbol = symbol
         self.left_child = left_child
@@ -110,6 +111,7 @@ class Entry():
 
 
 class UnaryEntry():
+    '''Chart entry with one back-pointer (unary productions)'''
     def __init__(self, symbol, child, inner_prob):
         self.symbol = symbol
         self.child = child
@@ -120,6 +122,7 @@ class UnaryEntry():
 
 
 class BaseEntry():
+    '''Chart entry at the pre-terminal level (POS -> word)'''
     def __init__(self, word, tag):
         self.word = word
         self.tag = tag

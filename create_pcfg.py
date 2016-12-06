@@ -8,9 +8,6 @@ from nltk.grammar import Nonterminal
 
 from utils import simplify
 
-class NonChomskyException(Exception):
-    pass
-
 def count_node(node, counter):
     '''Takes a node in a tree and adds 1 to the count of the corresponding
        production (if tree is not a leaf)'''
@@ -18,7 +15,7 @@ def count_node(node, counter):
         return
     if len(node) > 2:
         msg = "Rule '" + str(node.label()) + " -> " + str(node[:]) + " has too many children!"
-        raise NonChomskyException()
+        raise Exception(msg)
     else:
         lhs = node.label()
         rhs = tuple(child.label() for child in node)
