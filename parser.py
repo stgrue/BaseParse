@@ -133,6 +133,11 @@ class BaseEntry():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python3 parser.py start end")
+        print("(start and end refer to sentence numbers in PTB section 23)")
+        sys.exit(1)
+    
     ptb_test = LazyCorpusLoader('ptb', CategorizedBracketParseCorpusReader, r'wsj/23/wsj_.*.mrg', cat_file='allcats.txt', tagset='wsj')
     parser = Prob_CYK_Parser("all-rules.pcfg", "root-probs.pcfg")
 

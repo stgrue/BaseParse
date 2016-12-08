@@ -1,11 +1,12 @@
 from nltk.tree import Tree
 from itertools import chain
 
-def simplify(t):
+def transform(t):
     '''Pre-process tree to use as base for PCFG'''
     unlex(t)
     strip_labels(t)
     t.chomsky_normal_form()
+    return t
 
 def strip_labels(t):
     '''Simplifies labels of given tree to contain only phrases'''

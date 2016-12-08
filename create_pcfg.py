@@ -6,7 +6,7 @@ from nltk.corpus.util import LazyCorpusLoader
 from nltk.grammar import ProbabilisticProduction
 from nltk.grammar import Nonterminal
 
-from utils import simplify
+from utils import transform
 
 def count_node(node, counter):
     '''Takes a node in a tree and adds 1 to the count of the corresponding
@@ -33,7 +33,7 @@ def main():
     start_sym = defaultdict(float)
 
     for tree in ptb_train.parsed_sents():
-        simplify(tree)
+        transform(tree)
         count_tree(tree, counter)
         start_sym[tree.label()] += 1
 
